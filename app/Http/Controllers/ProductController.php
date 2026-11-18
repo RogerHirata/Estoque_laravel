@@ -13,8 +13,7 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $products = Product::with('category')->get();
-        return view('products.index', compact('products'));
+        return view('products.index');
     }
 
     /**
@@ -23,6 +22,7 @@ class ProductController extends Controller
     public function create()
     {
         $categories = Category::all();
+
         return view('products.create', compact('categories'));
     }
 
@@ -31,16 +31,17 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
-            'name'        => 'required|string|max:255',
-            'preco'       => 'required|numeric|min:0',
-            'estoque'     => 'required|integer|min:0',
-        ]);
+            'name' => 'required|string|max:255',
+            'preco' => 'required|numeric|min:0',
+            'estoque' => 'required|integer|min:0',
+            'descricao' => 'nullable|string|max:1000',
+        ], $this->messages());
 
-        Product::create($request->all());
+        Product::create($validated);
 
-        return redirect()->route('products.index')->with('success', 'Produto cadastrado com sucesso!');
+        return redirect()->route('products.index')->with('success', 'Produto cadastrado com sucesso.');
     }
 
     /**
@@ -48,7 +49,9 @@ class ProductController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $product = Product::with('category')->findOrFail($id);
+
+        return view('products.show', compact('product'));
     }
 
     /**
@@ -58,6 +61,7 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
         $categories = Category::all();
+
         return view('products.edit', compact('product', 'categories'));
     }
 
@@ -66,17 +70,18 @@ class ProductController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
-            'nome'        => 'required|string|max:255',
-            'preco'       => 'required|numeric|min:0',
-            'estoque'     => 'required|integer|min:0',
-        ]);
+            'name' => 'required|string|max:255',
+            'preco' => 'required|numeric|min:0',
+            'estoque' => 'required|integer|min:0',
+            'descricao' => 'nullable|string|max:1000',
+        ], $this->messages());
 
         $product = Product::findOrFail($id);
-        $product->update($request->all());
+        $product->update($validated);
 
-        return redirect()->route('products.index')->with('success', 'Produto atualizado com sucesso!');
+        return redirect()->route('products.show', $product)->with('success', 'Produto atualizado com sucesso.');
     }
 
     /**
@@ -85,8 +90,30 @@ class ProductController extends Controller
     public function destroy(string $id)
     {
         $product = Product::findOrFail($id);
+
+        if ($product->orderItems()->exists()) {
+            return back()->with('error', 'Não é possível excluir este produto porque ele está em pedidos.');
+        }
+
         $product->delete();
 
-        return redirect()->route('products.index')->with('success', 'Produto excluído com sucesso!');
+        return redirect()->route('products.index')->with('success', 'Produto excluído com sucesso.');
+    }
+
+    private function messages(): array
+    {
+        return [
+            'category_id.required' => 'Selecione a categoria.',
+            'category_id.exists' => 'Categoria não encontrada.',
+            'name.required' => 'Informe o nome do produto.',
+            'name.max' => 'O nome pode ter no máximo 255 caracteres.',
+            'preco.required' => 'Informe o preço.',
+            'preco.numeric' => 'O preço deve ser numérico.',
+            'preco.min' => 'O preço não pode ser negativo.',
+            'estoque.required' => 'Informe o estoque.',
+            'estoque.integer' => 'O estoque deve ser um número inteiro.',
+            'estoque.min' => 'O estoque não pode ser negativo.',
+            'descricao.max' => 'A descrição pode ter no máximo 1000 caracteres.',
+        ];
     }
 }

@@ -12,8 +12,7 @@ class CustomerController extends Controller
      */
     public function index()
     {
-        $customers = Customer::latest()->get();
-        return view('customers.index', compact('customers'));
+        return view('customers.index');
     }
 
     /**
@@ -29,24 +28,25 @@ class CustomerController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:customers,email',
-            'phone'    => 'nullable|string|max:20',
-        ]);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:customers,email',
+            'phone' => 'nullable|string|max:20',
+        ], $this->messages());
 
-        Customer::create($request->all());
+        Customer::create($validated);
 
-        return redirect()->route('customers.index')->with('success', 'Cliente cadastrado com sucesso!');
+        return redirect()->route('customers.index')->with('success', 'Cliente cadastrado com sucesso.');
     }
-    
 
     /**
      * Display the specified resource.
      */
     public function show(string $id)
     {
-        //
+        $customer = Customer::with('orders')->findOrFail($id);
+
+        return view('customers.show', compact('customer'));
     }
 
     /**
@@ -55,6 +55,7 @@ class CustomerController extends Controller
     public function edit(string $id)
     {
         $customer = Customer::findOrFail($id);
+
         return view('customers.edit', compact('customer'));
     }
 
@@ -65,15 +66,15 @@ class CustomerController extends Controller
     {
         $customer = Customer::findOrFail($id);
 
-        $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:customers,email,' . $customer->id,
-            'phone'    => 'nullable|string|max:20',
-        ]);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:customers,email,'.$customer->id,
+            'phone' => 'nullable|string|max:20',
+        ], $this->messages());
 
-        $customer->update($request->all());
+        $customer->update($validated);
 
-        return redirect()->route('customers.index')->with('success', 'Cliente atualizado com sucesso!');
+        return redirect()->route('customers.show', $customer)->with('success', 'Cliente atualizado com sucesso.');
     }
 
     /**
@@ -82,8 +83,25 @@ class CustomerController extends Controller
     public function destroy(string $id)
     {
         $customer = Customer::findOrFail($id);
+
+        if ($customer->orders()->exists()) {
+            return back()->with('error', 'Não é possível excluir este cliente porque ele possui pedidos.');
+        }
+
         $customer->delete();
 
-        return redirect()->route('customers.index')->with('success', 'Cliente excluído com sucesso!');
+        return redirect()->route('customers.index')->with('success', 'Cliente excluído com sucesso.');
+    }
+
+    private function messages(): array
+    {
+        return [
+            'name.required' => 'Informe o nome do cliente.',
+            'name.max' => 'O nome pode ter no máximo 255 caracteres.',
+            'email.required' => 'Informe o e-mail.',
+            'email.email' => 'Informe um e-mail válido.',
+            'email.unique' => 'Este e-mail já está cadastrado.',
+            'phone.max' => 'O telefone pode ter no máximo 20 caracteres.',
+        ];
     }
 }

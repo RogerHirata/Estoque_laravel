@@ -12,8 +12,7 @@ class CategoryController extends Controller
      */
     public function index()
     {
-        $categories = Category::all();
-        return view('categories.index', compact('categories'));  
+        return view('categories.index');
     }
 
     /**
@@ -29,13 +28,13 @@ class CategoryController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-        ]);
+        ], $this->messages());
 
-        Category::create($request->all());
+        Category::create($validated);
 
-        return redirect()->route('categories.index')->with('success', 'Categoria cadastrada com sucesso!');
+        return redirect()->route('categories.index')->with('success', 'Categoria cadastrada com sucesso.');
     }
 
     /**
@@ -43,7 +42,9 @@ class CategoryController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $category = Category::with('products')->findOrFail($id);
+
+        return view('categories.show', compact('category'));
     }
 
     /**
@@ -52,6 +53,7 @@ class CategoryController extends Controller
     public function edit(string $id)
     {
         $category = Category::findOrFail($id);
+
         return view('categories.edit', compact('category'));
     }
 
@@ -60,22 +62,15 @@ class CategoryController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $request->validate([
-        'nome' => 'required|string|max:255',
-        ]);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ], $this->messages());
 
-        // 2. Busca a categoria pelo ID
         $category = Category::findOrFail($id);
+        $category->update($validated);
 
-        // 3. Atualiza os dados no banco de dados
-        $category->update([
-            'nome' => $request->nome,
-        ]);
-
-        // 4. Redireciona com mensagem de sucesso
-        return redirect()->route('categories.index')->with('success', 'Categoria atualizada com sucesso!');
+        return redirect()->route('categories.show', $category)->with('success', 'Categoria atualizada com sucesso.');
     }
-    
 
     /**
      * Remove the specified resource from storage.
@@ -84,9 +79,21 @@ class CategoryController extends Controller
     {
         // Busca a categoria pelo ID e apaga do banco de dados
         $category = Category::findOrFail($id);
+
+        if ($category->products()->exists()) {
+            return back()->with('error', 'Não é possível excluir esta categoria porque ela possui produtos.');
+        }
+
         $category->delete();
 
-        // Redireciona para o index exibindo a mensagem de confirmação
-        return redirect()->route('categories.index')->with('success', 'Categoria excluída com sucesso!');
+        return redirect()->route('categories.index')->with('success', 'Categoria excluída com sucesso.');
+    }
+
+    private function messages(): array
+    {
+        return [
+            'name.required' => 'Informe o nome da categoria.',
+            'name.max' => 'O nome pode ter no máximo 255 caracteres.',
+        ];
     }
 }
